@@ -1,0 +1,9 @@
+.gradle/
+.kotlin/
+.idea/
+local.properties
+**/build/
+backend/data/
+__pycache__/
+.env
+*.log

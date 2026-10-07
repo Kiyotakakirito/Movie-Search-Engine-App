@@ -1,0 +1,5 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_margin="6dp" android:padding="8dp" android:background="#FFFFFF">
+    <ImageView android:id="@+id/poster" android:layout_width="match_parent" android:layout_height="208dp" android:scaleType="centerCrop" android:src="@drawable/poster_placeholder" android:contentDescription="Movie poster" />
+    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="44dp" android:layout_marginTop="10dp" android:textStyle="bold" android:textSize="16sp" android:textColor="#202B25" android:maxLines="2" android:ellipsize="end" />
+    <TextView android:id="@+id/year" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="#647069" android:paddingTop="4dp" android:paddingBottom="6dp" />
+</LinearLayout>

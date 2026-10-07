@@ -1,0 +1,20 @@
+--------- beginning of main
+10-07 10:12:11.960  7692  7692 D MovieSearch: query=Orbit method=Retrofit request=GET http://10.0.2.2:8000/search?q=Orbit
+10-07 10:12:13.118  7692  7692 D MovieSearch: method=Retrofit response/result count=6 total=6
+10-07 10:12:15.507  7692  7692 D MovieSearch: details id=sample6 title=Orbit: Homecoming
+10-07 10:12:16.664  7692  7692 D MovieSearch: query=Orbit method=Volley request=GET http://10.0.2.2:8000/search?q=Orbit
+10-07 10:12:17.759  7692  7692 D MovieSearch: method=Volley response/result count=6 total=6
+10-07 10:12:18.651  7692  7692 D MovieSearch: details id=sample6 title=Orbit: Homecoming
+10-07 10:12:19.845  7692  7692 D MovieSearch: Empty query rejected
+10-07 10:12:20.733  7692  7692 D MovieSearch: query=zzzz-no-movie-12345 method=Volley request=GET http://10.0.2.2:8000/search?q=zzzz-no-movie-12345
+10-07 10:12:21.270  7692  7692 D MovieSearch: method=Volley response/result count=0 total=0
+10-07 10:12:22.204  7692  7692 D MovieSearch: query=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx method=Retrofit request=GET http://10.0.2.2:8000/search?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+10-07 10:12:22.786  7692  7692 E MovieSearch: method=Retrofit error=Server error (400)
+10-07 10:12:23.660  7692  7692 D MovieSearch: query=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx method=Volley request=GET http://10.0.2.2:8000/search?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+10-07 10:12:24.302  7692  7692 E MovieSearch: method=Volley error=Server error (400)
+10-07 10:12:24.302  7692  7692 E MovieSearch: com.android.volley.ClientError
+10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.toolbox.NetworkUtility.shouldRetryException(NetworkUtility.java:193)
+10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.toolbox.BasicNetwork.performRequest(BasicNetwork.java:145)
+10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.processRequest(NetworkDispatcher.java:132)
+10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.processRequest(NetworkDispatcher.java:111)
+10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.run(NetworkDispatcher.java:90)
