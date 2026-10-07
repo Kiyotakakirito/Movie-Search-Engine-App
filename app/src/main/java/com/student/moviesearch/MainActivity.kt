@@ -6,6 +6,7 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
@@ -16,6 +17,7 @@ import com.android.volley.toolbox.Volley
 import com.google.gson.Gson
 import com.student.moviesearch.databinding.ActivityMainBinding
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -24,12 +26,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private val adapter = MovieAdapter { showDetails(it) }
+    private val adapter = MovieAdapter({ serverUrl() }) { showDetails(it) }
     private val queue by lazy { Volley.newRequestQueue(applicationContext) }
-    private val api by lazy {
-        Retrofit.Builder().baseUrl(BuildConfig.BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create()).build().create(MovieApi::class.java)
-    }
     private var currentCall: Call<SearchResponse>? = null
     private var requestNumber = 0
 
@@ -40,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         binding.results.layoutManager = GridLayoutManager(this, 2)
         binding.results.adapter = adapter
         binding.searchButton.setOnClickListener { search() }
+        binding.serverButton.setOnClickListener { serverSettings() }
         binding.queryInput.setOnEditorActionListener { _, action, _ ->
             if (action == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) { search(); true } else false
         }
@@ -56,7 +55,8 @@ class MainActivity : AppCompatActivity() {
         currentCall?.cancel()
         queue.cancelAll("search")
         val method = if (binding.volleyRadio.isChecked) "Volley" else "Retrofit"
-        val url = BuildConfig.BASE_URL.toHttpUrl().newBuilder().addPathSegment("search").addQueryParameter("q", query).build()
+        val baseUrl = serverUrl()
+        val url = baseUrl.toHttpUrl().resolve("search")!!.newBuilder().addQueryParameter("q", query).build()
         Log.d("MovieSearch", "query=$query method=$method request=GET $url")
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(binding.queryInput.windowToken, 0)
         adapter.show(emptyList())
@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity() {
             request.retryPolicy = DefaultRetryPolicy(30000, 0, 1f)
             queue.add(request)
         } else {
+            val api = Retrofit.Builder().baseUrl(baseUrl)
+                .addConverterFactory(GsonConverterFactory.create()).build().create(MovieApi::class.java)
             currentCall = api.search(query)
             currentCall!!.enqueue(object : Callback<SearchResponse> {
                 override fun onResponse(call: Call<SearchResponse>, response: Response<SearchResponse>) {
@@ -107,8 +109,44 @@ class MainActivity : AppCompatActivity() {
     private fun showError(number: Int, method: String, message: String, error: Throwable? = null) {
         if (number != requestNumber || isDestroyed) return
         binding.progress.visibility = View.GONE
-        binding.statusText.text = "$message. Check the server and try again."
+        binding.statusText.text = if (message == "Cannot reach movie server")
+            "Cannot connect to ${serverUrl()}. Start the server and check Server settings."
+        else "$message. Check the server and try again."
         Log.e("MovieSearch", "method=$method error=$message", error)
+    }
+
+    private fun serverUrl() = getSharedPreferences("connection", MODE_PRIVATE)
+        .getString("server", BuildConfig.BASE_URL) ?: BuildConfig.BASE_URL
+
+    private fun serverSettings() {
+        val input = EditText(this).apply {
+            setText(serverUrl())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+            id = R.id.serverAddress
+        }
+        val dialog = AlertDialog.Builder(this).setTitle("Movie server")
+            .setMessage("The Python server must be running. On a phone, use your computer's Wi-Fi IP, for example http://192.168.1.5:8000/. Connect both devices to the same Wi-Fi. On an emulator, use http://10.0.2.2:8000/.")
+            .setView(input).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val url = input.text.toString().trim().toHttpUrlOrNull()
+                if (url == null || url.query != null || url.fragment != null || url.username.isNotEmpty() || url.password.isNotEmpty()) {
+                    input.error = "Enter an HTTP or HTTPS server address"
+                } else {
+                    val normalized = url.toString().trimEnd('/') + "/"
+                    requestNumber++
+                    currentCall?.cancel()
+                    queue.cancelAll("search")
+                    getSharedPreferences("connection", MODE_PRIVATE).edit().putString("server", normalized).apply()
+                    adapter.show(emptyList())
+                    binding.progress.visibility = View.GONE
+                    binding.statusText.text = "Server saved. Enter a title and press Search."
+                    dialog.dismiss()
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun showDetails(movie: Movie) {

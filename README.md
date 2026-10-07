@@ -17,6 +17,8 @@ Run the app on an Android emulator and search for `Orbit`. There are six fiction
 
 The emulator connects to the host computer at `http://10.0.2.2:8000/`. A real phone connected with USB can use `adb reverse tcp:8000 tcp:8000` and a build with `-PmovieServer=http://127.0.0.1:8000/`. Alternatively use your computer's LAN address. The server must keep running while the app is used. Local HTTP is enabled for this classroom demonstration; a hosted version should use HTTPS.
 
+Version 1.1 adds **Server settings** in the app. You can save the address without rebuilding. On a physical phone, connect the phone and computer to the same Wi-Fi, start the Python server, then enter `http://YOUR_COMPUTER_IP:8000/`. Run `ipconfig` on Windows to find the Wi-Fi IPv4 address. Allow the Python server through your firewall on your private network if prompted. For USB forwarding, save `http://127.0.0.1:8000/` after running the adb reverse command. Installing the APK alone does not start the server or import the IMDb database. Sample mode matches the fictional `Orbit` movies; real titles require real-data mode.
+
 ## Use the real IMDb data
 
 The supplied [data.imdb.com](https://data.imdb.com/) site describes commercial metadata. Its [non-commercial dataset documentation](https://data.imdb.com/non-commercial-datasets/) links the public UTF-8 TSV files at [datasets.imdbws.com](https://datasets.imdbws.com/). The files are gzip compressed and use `\N` for missing values. There is no free title-search JSON endpoint on the supplied site.

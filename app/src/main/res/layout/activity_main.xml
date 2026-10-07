@@ -10,6 +10,7 @@
         <RadioButton android:id="@+id/retrofitRadio" android:layout_width="wrap_content" android:layout_height="48dp" android:text="Retrofit" />
         <RadioButton android:id="@+id/volleyRadio" android:layout_width="wrap_content" android:layout_height="48dp" android:text="Volley" android:layout_marginStart="20dp" />
     </RadioGroup>
+    <Button android:id="@+id/serverButton" android:layout_width="wrap_content" android:layout_height="48dp" android:text="Server settings" android:textAllCaps="false" style="?android:attr/borderlessButtonStyle" android:textColor="#286557" />
     <ProgressBar android:id="@+id/progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="4dp" android:indeterminate="true" android:visibility="gone" />
     <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enter a movie title to get started" android:textColor="#647069" android:paddingTop="12dp" android:paddingBottom="12dp" android:accessibilityLiveRegion="polite" />
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/results" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false" android:paddingBottom="12dp" />

@@ -18,6 +18,38 @@ class SearchTest {
     @Test
     fun sameSearchAndDetailsWithBothMethods() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { it.findViewById<android.widget.Button>(R.id.serverButton).performClick() }
+            SystemClock.sleep(500)
+            val settingsAutomation = InstrumentationRegistry.getInstrumentation().uiAutomation
+            settingsAutomation.serviceInfo = settingsAutomation.serviceInfo.apply {
+                flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            }
+            fun settingsRoot(): AccessibilityNodeInfo {
+                val end = SystemClock.elapsedRealtime() + 10000
+                while (SystemClock.elapsedRealtime() < end) {
+                    val root = settingsAutomation.rootInActiveWindow
+                    if (root != null && root.findAccessibilityNodeInfosByViewId("com.student.moviesearch:id/serverAddress").isNotEmpty()) return root
+                    SystemClock.sleep(100)
+                }
+                throw AssertionError("Server settings did not open")
+            }
+            fun setAddress(value: String) {
+                val arguments = android.os.Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+                }
+                settingsRoot().findAccessibilityNodeInfosByViewId("com.student.moviesearch:id/serverAddress").first()
+                    .performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
+                settingsRoot().findAccessibilityNodeInfosByText("Save").first()
+                    .performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                SystemClock.sleep(300)
+            }
+            setAddress("invalid address")
+            assertTrue(settingsRoot().findAccessibilityNodeInfosByText("Movie server").isNotEmpty())
+            setAddress(BuildConfig.BASE_URL + "/")
+            scenario.onActivity {
+                assertEquals(BuildConfig.BASE_URL, it.getSharedPreferences("connection", android.content.Context.MODE_PRIVATE).getString("server", ""))
+            }
+            scenario.recreate()
             var first = ""
             for (method in listOf(R.id.retrofitRadio, R.id.volleyRadio)) {
                 scenario.onActivity { activity ->
