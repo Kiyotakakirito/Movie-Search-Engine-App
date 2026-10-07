@@ -1,82 +1,70 @@
 # Movie Search Engine
 
-A Kotlin Android project with a simple movie search screen. Choose Retrofit or Volley, enter a title and press Search. Results use a two-column RecyclerView. Tap a poster to open the details dialog.
+A Kotlin Android student project that searches real movies directly through TMDB. It works on a physical phone using Wi-Fi or mobile data. A laptop server is not required in version 2.0.
 
-## Run the sample demonstration
+## Open and run
 
-Open this folder in Android Studio and let Gradle sync. Use JDK 17 or newer and Android SDK 35.
+Open this folder in Android Studio. Use JDK 17 or newer and Android SDK 35.
 
-From a terminal in this folder:
+Get your own TMDB **API Read Access Token** from your TMDB account's API settings. Paste it into the app's **API settings**, or configure it locally before building:
 
-```sh
-python backend/create_sample.py
-python backend/server.py --demo
+```properties
+tmdb.token=YOUR_READ_ACCESS_TOKEN
 ```
 
-Run the app on an Android emulator and search for `Orbit`. There are six fictional sample movies with generated sample posters. The results explicitly say **Sample data**. These records are only for demonstrating the screen and HTTP networking; they are not IMDb search results.
+Add that line to `local.properties`, alongside Android Studio's `sdk.dir` entry. This file is ignored by Git and is excluded from the source ZIP. Credentials are sent in the Authorization header and are never logged. The API key is not required when using a read access token.
 
-The emulator connects to the host computer at `http://10.0.2.2:8000/`. A real phone connected with USB can use `adb reverse tcp:8000 tcp:8000` and a build with `-PmovieServer=http://127.0.0.1:8000/`. Alternatively use your computer's LAN address. The server must keep running while the app is used. Local HTTP is enabled for this classroom demonstration; a hosted version should use HTTPS.
-
-Version 1.1 adds **Server settings** in the app. You can save the address without rebuilding. On a physical phone, connect the phone and computer to the same Wi-Fi, start the Python server, then enter `http://YOUR_COMPUTER_IP:8000/`. Run `ipconfig` on Windows to find the Wi-Fi IPv4 address. Allow the Python server through your firewall on your private network if prompted. For USB forwarding, save `http://127.0.0.1:8000/` after running the adb reverse command. Installing the APK alone does not start the server or import the IMDb database. Sample mode matches the fictional `Orbit` movies; real titles require real-data mode.
-
-## Use the real IMDb data
-
-The supplied [data.imdb.com](https://data.imdb.com/) site describes commercial metadata. Its [non-commercial dataset documentation](https://data.imdb.com/non-commercial-datasets/) links the public UTF-8 TSV files at [datasets.imdbws.com](https://datasets.imdbws.com/). The files are gzip compressed and use `\N` for missing values. There is no free title-search JSON endpoint on the supplied site.
+A local build may embed the configured token in its APK. This is suitable for this personal classroom demonstration, but it does not conceal a token from someone inspecting the APK. Keep that configured APK private. The GitHub workflow builds without a token; its APK prompts for one in API settings. A publicly distributed application should use a hosted backend when credentials need to remain private.
 
 ```sh
-python backend/import_data.py
-python backend/server.py
+./gradlew assembleDebug lintDebug
 ```
 
-The importer streams the official files into SQLite and publishes the database when the import completes. Downloads and imports can take a long time and require several GB of disk space. `--skip-credits` imports titles and ratings only for a quicker setup. Run the importer before starting the server. The database and downloaded datasets are excluded from Git.
+Install the APK, enter a title such as `Inception`, choose Retrofit or Volley and press Search. Tap a poster to fetch the complete available details. Use **Load more** to retrieve subsequent result pages. **About** contains the required official TMDB logo and attribution notice.
 
-| Data file | Fields used |
-| --- | --- |
-| title.basics | IMDb ID, primary/original title, release year, runtime, genres |
-| title.ratings | Average rating, vote count |
-| title.crew | Director IDs |
-| title.principals | Principal cast IDs and ordering |
-| name.basics | Names for the director and cast IDs |
+## Data source
 
-Only non-adult feature movies are indexed. A title search matches the primary or original title, ignores case and treats `%` and `_` literally. Exact matches appear first, then titles with more votes. At most 40 results are returned and the app shows the total when there are more. Cast comes from principal credits and is not an exhaustive cast list.
+Version 2.0 uses [TMDB](https://www.themoviedb.org), not IMDb. This is a change from the original assignment's source requirement. Ratings and vote counts are labelled as TMDB values. An IMDb ID may be available in the TMDB details response, but this does not make the data IMDb-sourced.
 
-Posters and plots are absent from the free IMDb datasets. The app displays a film placeholder and states when a description is unavailable. For optional poster/plot enrichment, set `OMDB_API_KEY` in the server environment before starting the real-data server. IMDb stays the search source; the optional [OMDb API](https://www.omdbapi.com/) looks up extra fields by IMDb ID. Never commit an API key. The sample mode requires no key.
+The [TMDB API](https://developer.themoviedb.org/docs/getting-started) is free for non-commercial use with required attribution. The app includes: "This product uses the TMDB API but is not endorsed or certified by TMDB." The bundled logo was downloaded unchanged from the [official branding page](https://www.themoviedb.org/about/logos-attribution).
 
-## Networking and response
+| Operation | HTTPS request | Fields used |
+| --- | --- | --- |
+| Movie search | `/3/search/movie?query=...&page=...&include_adult=false` | ID, title, release date, poster path, overview, average vote, vote count, total results/pages |
+| Movie details | `/3/movie/{id}?append_to_response=credits` | Runtime, genres, description, IMDb ID, rating, votes, cast and director credits |
+| Poster image | `https://image.tmdb.org/t/p/w342/{poster_path}` | Poster fetched using Coil |
 
-Both implementations call `GET /search?q=...` on the local dataset server. Retrofit uses an annotated interface, `Call.enqueue` and Gson conversion. Volley uses `JsonObjectRequest` and converts its JSON response to the same Kotlin data classes with Gson. Both run requests asynchronously and deliver callbacks on the main thread. New searches cancel old requests, and an incrementing request number prevents a stale response from replacing a newer search.
+Missing posters use a film placeholder. Missing fields show Unavailable. The details dialog remains scrollable for long descriptions and cast lists. Search results use a vertical LinearLayout root, horizontal search row, radio method selector and RecyclerView with a two-column GridLayoutManager.
 
-The server returns `movies`, `total`, `limit` and `source`. Each movie contains `id`, `title`, `year`, `genres`, `rating`, `votes`, `runtime`, `directors`, `cast`, `poster` and `description`. Missing scalar fields are JSON null; missing lists are empty. An empty query returns HTTP 400, a missing database returns 503 and an unknown route returns 404.
+Both search and details are implemented with both networking libraries. Network operations are asynchronous. New searches cancel the previous request, and request numbers prevent stale callbacks from replacing current results. Closing a details dialog cancels its request. Load more keeps the networking method used for the current search and stops at TMDB's supported 500-page limit.
 
 ## Volley and Retrofit comparison
 
-| Point | Volley in this project | Retrofit in this project |
+| Point | Volley implementation | Retrofit implementation |
 | --- | --- | --- |
-| Request | Build an encoded URL and create a JsonObjectRequest | Call the annotated search function |
-| Parsing | Explicit Gson conversion from JSONObject | Gson converter produces SearchResponse |
-| Errors | VolleyError and optional HTTP status | HTTP Response code or onFailure |
-| Cancellation | Cancel requests with the search tag | Cancel the active Call |
-| Caching | Disabled so demonstrations reach the server | No response cache configured |
-| Experience | Convenient for a small individual JSON request | Less repetitive when adding more typed endpoints |
+| Requests | Build encoded URLs and use JsonObjectRequest | Annotated MovieApi methods with Query and Path parameters |
+| Authentication | Override getHeaders to send the bearer token | Header parameter sends the same bearer token |
+| Parsing | Gson converts JSONObject text into Kotlin models | Gson converter parses directly into the same models |
+| Asynchronous execution | RequestQueue | Call.enqueue |
+| Errors | Map Volley HTTP status/network failure to user messages | Map unsuccessful Response/onFailure to the same user messages |
+| Cancellation | Request.cancel | Call.cancel |
+| Caching | Disabled for search/details | No HTTP response cache configured |
+| Adding endpoints | Requires another URL and request | Usually another interface method |
 
-Both produced the same results for the same endpoint. This project does not make a speed claim: the dataset query, connection and server workload affect timing more than this small difference in client code. Coil loads images independently of the selected search networking library.
+Both methods return the same results from TMDB. No speed advantage is claimed. Coil fetches poster images independently of the selected networking method.
 
-## Demonstration
+## Demonstration and checks
 
-See the captured [screenshots and Logcat evidence](demo/README.md).
+Captured [screenshots and Logcat output](demo/README.md) show real TMDB searches through both methods and the details dialogs. Filter Logcat by `MovieSearch` to see query, selected method, endpoint, page, counts and errors. Authorization values are excluded.
 
-1. Start the sample server, launch the app and search `Orbit` with Retrofit selected.
-2. Show the two-column grid and tap a poster. Show year, genre, rating, votes, runtime, director, cast and description, then close the dialog.
-3. Select Volley and repeat the same query. The same six results should appear.
-4. Try an empty title and an unmatched title. Stop the server and search again to show the error state.
-5. In Android Studio Logcat filter by `MovieSearch`, or run `adb logcat -s MovieSearch:D`. Logs include query, method, request URL, result count, selected details and errors.
-
-The instrumentation test runs the sample search using both methods, compares the first result and count, checks the grid column count and downloaded poster, opens both dialogs and checks empty/no-match handling. It also checks HTTP 400 error handling with both libraries. Start the sample server and an emulator before running:
+The instrumentation test needs internet access and a locally configured read access token:
 
 ```sh
-./gradlew assembleDebug lintDebug connectedDebugAndroidTest
+./gradlew connectedDebugAndroidTest
 ```
 
-Backend parsing and search checks can be run with `python -m unittest discover -s backend -v`. They use tiny TSV fixtures to test the importer and query behavior; they do not replace the production IMDb datasets.
+It compares the live Inception result count and first title between methods, checks the two-column grid and downloaded poster, loads details through both methods, checks director/cast/runtime/IMDb ID, checks empty/no-match handling, tests rejected-token errors with both libraries, verifies pagination and opens the attribution dialog. Counts and ratings are not hard-coded because TMDB can update them.
 
-The GitHub workflow builds and runs lint, then uploads the debug APK. It does not claim to run emulator tests or download the IMDb datasets.
+## Earlier IMDb implementation
+
+The Python scripts under `backend/` preserve the earlier official IMDb dataset importer and sample HTTP server. The current Android app does not call them. To use that older implementation, check out the earlier Git commit and follow the [IMDb version instructions](docs/IMDB-version.md). Those instructions apply to version 1.1, rather than the current TMDB app.

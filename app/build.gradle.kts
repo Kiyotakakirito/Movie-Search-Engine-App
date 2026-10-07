@@ -1,4 +1,12 @@
+import java.util.Properties
+
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+val localSettings = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val tmdbToken = localSettings.getProperty("tmdb.token", "")
+require(tmdbToken.matches(Regex("[A-Za-z0-9._-]*"))) { "Invalid TMDB token format in local.properties" }
 android {
     namespace = "com.student.moviesearch"
     compileSdk = 35
@@ -6,9 +14,9 @@ android {
         applicationId = "com.student.moviesearch"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
-        buildConfigField("String", "BASE_URL", "\"${providers.gradleProperty("movieServer").getOrElse("http://10.0.2.2:8000/")}\"")
+        versionCode = 3
+        versionName = "2.0"
+        buildConfigField("String", "TMDB_TOKEN", "\"$tmdbToken\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { viewBinding = true; buildConfig = true }
@@ -22,6 +30,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("io.coil-kt:coil:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:rules:1.6.1")
 }

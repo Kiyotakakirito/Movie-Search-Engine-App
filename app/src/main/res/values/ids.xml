@@ -1,3 +1,4 @@
 <resources>
-    <item name="serverAddress" type="id" />
+    <item name="apiToken" type="id" />
+    <item name="movieDetails" type="id" />
 </resources>

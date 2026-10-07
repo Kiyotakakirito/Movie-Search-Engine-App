@@ -1,20 +1,22 @@
 # Demonstration
 
-These screenshots were captured from the running Android app on the Pixel_10 emulator using the local sample HTTP server. The six movies, posters and metadata are fictional demonstration data. Both methods send HTTP requests to the same search endpoint.
+These screenshots were captured from the running Android app on the Pixel_10 emulator. Version 2.0 connects directly to the live TMDB API over HTTPS. Search results, posters and movie details come from TMDB. No local movie server is involved.
 
 | Retrofit | Volley |
 | --- | --- |
 | ![Retrofit results](retrofit-results.png) | ![Volley results](volley-results.png) |
 | ![Retrofit details](retrofit-details.png) | ![Volley details](volley-details.png) |
 
-The main screen uses the required vertical LinearLayout, horizontal search row, radio method selector and a RecyclerView with two columns. Tapping a poster opens the details dialog.
+The two methods search for Inception, then request its details and credits when the poster is tapped. The same result count and first title are compared by the instrumentation test. Votes and ratings shown in screenshots reflect the API at capture time.
 
-![No matching results](no-results.png)
-
-| Empty query | API error |
+| Empty query | No matches |
 | --- | --- |
-| ![Empty query](empty-query.png) | ![Volley API error](volley-error.png) |
+| ![Empty query](empty-query.png) | ![No matching results](no-results.png) |
 
-Verified on 7 October 2026: `assembleDebug`, `lintDebug`, the Android instrumentation test and the backend unittest passed. Android lint reports warnings for classroom-project choices such as English strings in layouts and older dependency versions, with no errors. The full official IMDb dataset download was not completed during this demonstration; importer checks used compressed TSV fixtures. Real IMDb mode requires the import described in the project README.
+| Retrofit rejected-token error | Volley rejected-token error |
+| --- | --- |
+| ![Retrofit API error](retrofit-error.png) | ![Volley API error](volley-error.png) |
 
-Actual Logcat output is saved in `logcat.txt`. The project README contains setup commands, the data-source investigation and the Volley/Retrofit comparison.
+![TMDB attribution](about.png)
+
+Actual Logcat output is saved in `logcat.txt`. Requests log endpoints and queries without credentials. The project README contains setup commands and the Volley/Retrofit comparison.

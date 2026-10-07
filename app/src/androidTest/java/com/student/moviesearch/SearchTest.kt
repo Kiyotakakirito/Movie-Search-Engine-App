@@ -1,12 +1,12 @@
 package com.student.moviesearch
 
 import android.os.SystemClock
+import android.graphics.Bitmap
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import android.view.accessibility.AccessibilityNodeInfo
-import android.graphics.Bitmap
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -16,66 +16,40 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SearchTest {
     @Test
-    fun sameSearchAndDetailsWithBothMethods() {
+    fun liveSearchAndDetailsWithBothMethods() {
+        assertTrue("Configure tmdb.token in local.properties for live API tests", BuildConfig.TMDB_TOKEN.isNotBlank())
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { it.findViewById<android.widget.Button>(R.id.serverButton).performClick() }
-            SystemClock.sleep(500)
-            val settingsAutomation = InstrumentationRegistry.getInstrumentation().uiAutomation
-            settingsAutomation.serviceInfo = settingsAutomation.serviceInfo.apply {
-                flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            }
-            fun settingsRoot(): AccessibilityNodeInfo {
-                val end = SystemClock.elapsedRealtime() + 10000
-                while (SystemClock.elapsedRealtime() < end) {
-                    val root = settingsAutomation.rootInActiveWindow
-                    if (root != null && root.findAccessibilityNodeInfosByViewId("com.student.moviesearch:id/serverAddress").isNotEmpty()) return root
-                    SystemClock.sleep(100)
-                }
-                throw AssertionError("Server settings did not open")
-            }
-            fun setAddress(value: String) {
-                val arguments = android.os.Bundle().apply {
-                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
-                }
-                settingsRoot().findAccessibilityNodeInfosByViewId("com.student.moviesearch:id/serverAddress").first()
-                    .performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-                settingsRoot().findAccessibilityNodeInfosByText("Save").first()
-                    .performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                SystemClock.sleep(300)
-            }
-            setAddress("invalid address")
-            assertTrue(settingsRoot().findAccessibilityNodeInfosByText("Movie server").isNotEmpty())
-            setAddress(BuildConfig.BASE_URL + "/")
-            scenario.onActivity {
-                assertEquals(BuildConfig.BASE_URL, it.getSharedPreferences("connection", android.content.Context.MODE_PRIVATE).getString("server", ""))
-            }
-            scenario.recreate()
-            var first = ""
+            var firstTitle = ""
+            var firstCount = 0
             for (method in listOf(R.id.retrofitRadio, R.id.volleyRadio)) {
-                scenario.onActivity { activity ->
-                    activity.findViewById<android.widget.RadioGroup>(R.id.methodGroup).check(method)
-                    activity.findViewById<android.widget.EditText>(R.id.queryInput).setText("Orbit")
-                    activity.findViewById<android.widget.Button>(R.id.searchButton).performClick()
-                }
+                runSearch(scenario, method, "Inception")
                 val status = waitForSearch(scenario)
-                assertTrue(status.contains("6 movies found"))
-                assertTrue(status.contains("Sample data"))
+                assertTrue(status.contains("TMDB"))
+                assertTrue(status.contains("movies"))
                 waitForPoster(scenario)
                 saveScreenshot(if (method == R.id.retrofitRadio) "retrofit-results" else "volley-results")
                 scenario.onActivity { activity ->
                     val list = activity.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.results)
                     assertEquals(2, (list.layoutManager as androidx.recyclerview.widget.GridLayoutManager).spanCount)
-                    assertEquals(6, list.adapter!!.itemCount)
+                    val count = list.adapter!!.itemCount
+                    assertTrue(count > 0)
                     val title = list.getChildAt(0).findViewById<TextView>(R.id.title).text.toString()
-                    if (first.isEmpty()) first = title else assertEquals(first, title)
+                    if (firstTitle.isEmpty()) { firstTitle = title; firstCount = count }
+                    else { assertEquals(firstTitle, title); assertEquals(firstCount, count) }
                     list.getChildAt(0).findViewById<android.widget.ImageView>(R.id.poster).performClick()
                 }
+                val detail = waitForDetails()
+                assertTrue(detail.contains("TMDB rating:"))
+                assertTrue(detail.contains("Director: Christopher Nolan"))
+                assertTrue(detail.contains("Leonardo DiCaprio"))
+                assertTrue(detail.contains("148 minutes"))
+                assertTrue(detail.contains("tt1375666"))
                 saveScreenshot(if (method == R.id.retrofitRadio) "retrofit-details" else "volley-details")
-                val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-                assertTrue(automation.rootInActiveWindow.findAccessibilityNodeInfosByText(first).any { it.text?.toString() == first })
-                val close = automation.rootInActiveWindow.findAccessibilityNodeInfosByText("Close").first()
-                assertTrue(close.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-                SystemClock.sleep(300)
+                closeDialog()
             }
             scenario.onActivity { activity ->
                 activity.findViewById<android.widget.EditText>(R.id.queryInput).setText("")
@@ -83,26 +57,62 @@ class SearchTest {
                 assertEquals("Enter a movie title", activity.findViewById<android.widget.EditText>(R.id.queryInput).error.toString())
             }
             saveScreenshot("empty-query")
-            scenario.onActivity { activity ->
-                activity.findViewById<android.widget.EditText>(R.id.queryInput).setText("zzzz-no-movie-12345")
-                activity.findViewById<android.widget.Button>(R.id.searchButton).performClick()
-            }
+            runSearch(scenario, R.id.volleyRadio, "zzzz-no-movie-987654321-qaz")
             assertTrue(waitForSearch(scenario).contains("No movies found"))
             saveScreenshot("no-results")
             for (method in listOf(R.id.retrofitRadio, R.id.volleyRadio)) {
-                scenario.onActivity { activity ->
-                    activity.findViewById<android.widget.RadioGroup>(R.id.methodGroup).check(method)
-                    activity.findViewById<android.widget.EditText>(R.id.queryInput).setText("x".repeat(201))
-                    activity.findViewById<android.widget.Button>(R.id.searchButton).performClick()
-                }
-                assertTrue(waitForSearch(scenario).contains("Server error (400)"))
+                scenario.onActivity { it.getSharedPreferences("tmdb", android.content.Context.MODE_PRIVATE).edit().putString("token", "invalid-test-token").apply() }
+                runSearch(scenario, method, "Inception")
+                assertTrue(waitForSearch(scenario).contains("rejected the access token"))
                 saveScreenshot(if (method == R.id.retrofitRadio) "retrofit-error" else "volley-error")
             }
+            scenario.onActivity { it.getSharedPreferences("tmdb", android.content.Context.MODE_PRIVATE).edit().remove("token").apply() }
+            runSearch(scenario, R.id.retrofitRadio, "Batman")
+            assertTrue(waitForSearch(scenario).contains("movies"))
+            var previous = 0
+            scenario.onActivity { activity ->
+                previous = activity.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.results).adapter!!.itemCount
+                activity.findViewById<android.widget.Button>(R.id.moreButton).performClick()
+            }
+            waitForSearch(scenario)
+            scenario.onActivity { activity -> assertTrue(activity.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.results).adapter!!.itemCount > previous) }
+            scenario.onActivity { it.findViewById<android.widget.Button>(R.id.aboutButton).performClick() }
+            SystemClock.sleep(1000)
+            assertTrue(automation.rootInActiveWindow.findAccessibilityNodeInfosByText("This product uses the TMDB API").isNotEmpty())
+            saveScreenshot("about")
+            closeDialog()
         }
     }
 
+    private fun runSearch(scenario: ActivityScenario<MainActivity>, method: Int, query: String) {
+        scenario.onActivity { activity ->
+            activity.findViewById<android.widget.RadioGroup>(R.id.methodGroup).check(method)
+            activity.findViewById<android.widget.EditText>(R.id.queryInput).setText(query)
+            activity.findViewById<android.widget.Button>(R.id.searchButton).performClick()
+        }
+    }
+
+    private fun waitForDetails(): String {
+        val end = SystemClock.elapsedRealtime() + 35000
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        while (SystemClock.elapsedRealtime() < end) {
+            val nodes = automation.rootInActiveWindow?.findAccessibilityNodeInfosByViewId("com.student.moviesearch:id/movieDetails").orEmpty()
+            val text = nodes.firstOrNull()?.text?.toString().orEmpty()
+            if (text.isNotEmpty() && !text.startsWith("Loading")) return text
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Details did not complete")
+    }
+
+    private fun closeDialog() {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val close = automation.rootInActiveWindow.findAccessibilityNodeInfosByText("Close").first()
+        assertTrue(close.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        SystemClock.sleep(300)
+    }
+
     private fun waitForPoster(scenario: ActivityScenario<MainActivity>) {
-        val end = SystemClock.elapsedRealtime() + 15000
+        val end = SystemClock.elapsedRealtime() + 20000
         while (SystemClock.elapsedRealtime() < end) {
             var loaded = false
             scenario.onActivity { activity ->
@@ -112,7 +122,7 @@ class SearchTest {
             if (loaded) return
             SystemClock.sleep(100)
         }
-        throw AssertionError("Sample poster did not load")
+        throw AssertionError("Movie poster did not load")
     }
 
     private fun saveScreenshot(name: String) {

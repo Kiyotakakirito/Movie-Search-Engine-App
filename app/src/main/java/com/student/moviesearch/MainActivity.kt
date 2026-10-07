@@ -4,144 +4,189 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.GridLayoutManager
-import com.android.volley.DefaultRetryPolicy
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
-import com.android.volley.toolbox.Volley
-import com.google.gson.Gson
-import com.student.moviesearch.databinding.ActivityMainBinding
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import coil.load
+import coil.decode.SvgDecoder
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityMainBinding
-    private val adapter = MovieAdapter({ serverUrl() }) { showDetails(it) }
-    private val queue by lazy { Volley.newRequestQueue(applicationContext) }
-    private var currentCall: Call<SearchResponse>? = null
+    private lateinit var binding: com.student.moviesearch.databinding.ActivityMainBinding
+    private val requests by lazy { MovieRequests(this) }
+    private val adapter = MovieAdapter { openDetails(it) }
+    private var cancelSearch: (() -> Unit)? = null
+    private var cancelDetails: (() -> Unit)? = null
+    private var detailsDialog: AlertDialog? = null
     private var requestNumber = 0
+    private var detailNumber = 0
+    private var currentQuery = ""
+    private var currentMethod = "Retrofit"
+    private var currentPage = 0
+    private var totalPages = 0
+    private val movies = mutableListOf<Movie>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = com.student.moviesearch.databinding.ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.results.layoutManager = GridLayoutManager(this, 2)
         binding.results.adapter = adapter
         binding.searchButton.setOnClickListener { search() }
-        binding.serverButton.setOnClickListener { serverSettings() }
+        binding.moreButton.setOnClickListener { search(true) }
+        binding.apiButton.setOnClickListener { apiSettings() }
+        binding.aboutButton.setOnClickListener { about() }
         binding.queryInput.setOnEditorActionListener { _, action, _ ->
             if (action == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) { search(); true } else false
         }
+        if (token().isBlank()) binding.statusText.text = "Add your TMDB read access token in API settings."
     }
 
-    private fun search() {
-        val query = binding.queryInput.text.toString().trim()
+    private fun token() = getSharedPreferences("tmdb", MODE_PRIVATE)
+        .getString("token", BuildConfig.TMDB_TOKEN) ?: BuildConfig.TMDB_TOKEN
+
+    private fun selectedMethod() = if (binding.volleyRadio.isChecked) "Volley" else "Retrofit"
+
+    private fun search(loadMore: Boolean = false) {
+        val query = if (loadMore) currentQuery else binding.queryInput.text.toString().trim()
         if (query.isEmpty()) {
             binding.queryInput.error = "Enter a movie title"
             Log.d("MovieSearch", "Empty query rejected")
             return
         }
+        if (token().isBlank()) {
+            binding.statusText.text = "Add your TMDB read access token in API settings."
+            apiSettings()
+            return
+        }
+        binding.queryInput.error = null
         val number = ++requestNumber
-        currentCall?.cancel()
-        queue.cancelAll("search")
-        val method = if (binding.volleyRadio.isChecked) "Volley" else "Retrofit"
-        val baseUrl = serverUrl()
-        val url = baseUrl.toHttpUrl().resolve("search")!!.newBuilder().addQueryParameter("q", query).build()
-        Log.d("MovieSearch", "query=$query method=$method request=GET $url")
-        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(binding.queryInput.windowToken, 0)
-        adapter.show(emptyList())
+        cancelSearch?.invoke()
+        if (!loadMore) {
+            currentQuery = query
+            currentMethod = selectedMethod()
+            currentPage = 0
+            totalPages = 0
+            movies.clear()
+            adapter.show(emptyList())
+        }
+        val page = currentPage + 1
+        val method = currentMethod
+        Log.d("MovieSearch", "query=$query method=$method request=GET /3/search/movie page=$page")
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(binding.queryInput.windowToken, 0)
         binding.progress.visibility = View.VISIBLE
+        binding.moreButton.visibility = View.GONE
         binding.statusText.text = "Searching with $method…"
-        if (method == "Volley") {
-            val request = JsonObjectRequest(Request.Method.GET, url.toString(), null, { json ->
-                try {
-                    val response = Gson().fromJson(json.toString(), SearchResponse::class.java)
-                    showResults(number, method, response)
-                } catch (error: Exception) { showError(number, method, "Invalid server response", error) }
-            }, { error ->
-                val code = error.networkResponse?.statusCode
-                showError(number, method, if (code != null) "Server error ($code)" else "Cannot reach movie server", error)
-            })
-            request.tag = "search"
-            request.setShouldCache(false)
-            request.retryPolicy = DefaultRetryPolicy(30000, 0, 1f)
-            queue.add(request)
-        } else {
-            val api = Retrofit.Builder().baseUrl(baseUrl)
-                .addConverterFactory(GsonConverterFactory.create()).build().create(MovieApi::class.java)
-            currentCall = api.search(query)
-            currentCall!!.enqueue(object : Callback<SearchResponse> {
-                override fun onResponse(call: Call<SearchResponse>, response: Response<SearchResponse>) {
-                    val body = response.body()
-                    if (response.isSuccessful && body != null) showResults(number, method, body)
-                    else showError(number, method, "Server error (${response.code()})")
-                }
-                override fun onFailure(call: Call<SearchResponse>, error: Throwable) {
-                    if (!call.isCanceled) showError(number, method, "Cannot reach movie server", error)
-                }
-            })
+        cancelSearch = requests.search(query, page, method, token(), { response ->
+            if (number == requestNumber && !isDestroyed) {
+                val found = response.results.orEmpty().mapNotNull { it.toMovie() }
+                movies.addAll(found.filter { item -> movies.none { it.id == item.id } })
+                currentPage = page
+                totalPages = minOf(response.pages ?: 0, 500)
+                adapter.show(movies.toList())
+                binding.progress.visibility = View.GONE
+                val total = response.total ?: movies.size
+                binding.statusText.text = if (movies.isEmpty()) "No movies found. Try another title."
+                    else "${movies.size} of $total movies · $method · TMDB"
+                binding.moreButton.visibility = if (currentPage < totalPages) View.VISIBLE else View.GONE
+                Log.d("MovieSearch", "method=$method response/result count=${found.size} total=$total page=$page")
+            }
+        }, { message ->
+            if (number == requestNumber && !isDestroyed) {
+                binding.progress.visibility = View.GONE
+                binding.statusText.text = message
+                binding.moreButton.visibility = if (currentPage < totalPages) View.VISIBLE else View.GONE
+                Log.e("MovieSearch", "method=$method search error=$message")
+            }
+        })
+    }
+
+    private fun openDetails(movie: Movie) {
+        detailsDialog?.dismiss()
+        cancelDetails?.invoke()
+        val number = ++detailNumber
+        val method = selectedMethod()
+        val text = TextView(this).apply {
+            id = R.id.movieDetails
+            this.text = "Loading movie details with $method…"
+            textSize = 16f
+            val padding = (24 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding / 2, padding, padding)
         }
-    }
-
-    private fun showResults(number: Int, method: String, response: SearchResponse) {
-        if (number != requestNumber || isDestroyed) return
-        binding.progress.visibility = View.GONE
-        adapter.show(response.movies)
-        val status = when {
-            response.movies.isEmpty() -> "No movies found. Try another title."
-            response.total > response.movies.size -> "Showing ${response.movies.size} of ${response.total} movies · $method"
-            else -> "${response.movies.size} movies found · $method"
+        val dialog = AlertDialog.Builder(this).setTitle(movie.title)
+            .setView(ScrollView(this).apply { addView(text) }).setPositiveButton("Close", null).create()
+        detailsDialog = dialog
+        dialog.setOnDismissListener {
+            if (detailsDialog === dialog) {
+                detailNumber++
+                cancelDetails?.invoke()
+                detailsDialog = null
+            }
         }
-        binding.statusText.text = "$status · ${response.source}"
-        Log.d("MovieSearch", "method=$method response/result count=${response.movies.size} total=${response.total}")
+        dialog.show()
+        Log.d("MovieSearch", "method=$method details request=GET /3/movie/${movie.id}?append_to_response=credits")
+        cancelDetails = requests.details(movie.id, method, token(), { response ->
+            if (number == detailNumber && dialog.isShowing && !isDestroyed) {
+                val details = response.toMovie()
+                text.text = if (details != null) detailsText(details) else "Movie details unavailable."
+                Log.d("MovieSearch", "method=$method details response id=${movie.id} cast count=${details?.cast?.size ?: 0}")
+            }
+        }, { message ->
+            if (number == detailNumber && dialog.isShowing && !isDestroyed) {
+                text.text = detailsText(movie) + "\n\nFull details could not be loaded: $message"
+                Log.e("MovieSearch", "method=$method details error=$message")
+            }
+        })
     }
 
-    private fun showError(number: Int, method: String, message: String, error: Throwable? = null) {
-        if (number != requestNumber || isDestroyed) return
-        binding.progress.visibility = View.GONE
-        binding.statusText.text = if (message == "Cannot reach movie server")
-            "Cannot connect to ${serverUrl()}. Start the server and check Server settings."
-        else "$message. Check the server and try again."
-        Log.e("MovieSearch", "method=$method error=$message", error)
+    private fun detailsText(movie: Movie): String {
+        fun available(value: Any?) = value?.toString() ?: "Unavailable"
+        fun names(value: List<String>) = value.joinToString(", ").ifEmpty { "Unavailable" }
+        return """
+            Year: ${available(movie.year)}
+            Genre: ${names(movie.genres)}
+            TMDB rating: ${movie.rating?.let { String.format(java.util.Locale.US, "%.1f / 10", it) } ?: "Unavailable"}
+            TMDB votes: ${available(movie.votes)}
+            Runtime: ${movie.runtime?.let { "$it minutes" } ?: "Unavailable"}
+
+            Director: ${names(movie.directors)}
+
+            Description: ${movie.description ?: "Unavailable"}
+
+            Cast: ${names(movie.cast)}
+
+            TMDB ID: ${movie.id}
+            IMDb ID: ${available(movie.imdbId)}
+        """.trimIndent()
     }
 
-    private fun serverUrl() = getSharedPreferences("connection", MODE_PRIVATE)
-        .getString("server", BuildConfig.BASE_URL) ?: BuildConfig.BASE_URL
-
-    private fun serverSettings() {
+    private fun apiSettings() {
         val input = EditText(this).apply {
-            setText(serverUrl())
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            id = R.id.apiToken
+            hint = "API Read Access Token"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine()
-            id = R.id.serverAddress
         }
-        val dialog = AlertDialog.Builder(this).setTitle("Movie server")
-            .setMessage("The Python server must be running. On a phone, use your computer's Wi-Fi IP, for example http://192.168.1.5:8000/. Connect both devices to the same Wi-Fi. On an emulator, use http://10.0.2.2:8000/.")
+        val dialog = AlertDialog.Builder(this).setTitle("TMDB API access")
+            .setMessage("${if (token().isBlank()) "No token configured." else "An access token is configured."} Paste a new API Read Access Token to replace it. Your app connects directly to TMDB over the internet.")
             .setView(input).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val url = input.text.toString().trim().toHttpUrlOrNull()
-                if (url == null || url.query != null || url.fragment != null || url.username.isNotEmpty() || url.password.isNotEmpty()) {
-                    input.error = "Enter an HTTP or HTTPS server address"
+                val value = input.text.toString().trim().removePrefix("Bearer ").trim()
+                if (value.isEmpty() || value.any { it.isWhitespace() } || !value.matches(Regex("[A-Za-z0-9._-]+"))) {
+                    input.error = "Paste a valid read access token"
                 } else {
-                    val normalized = url.toString().trimEnd('/') + "/"
                     requestNumber++
-                    currentCall?.cancel()
-                    queue.cancelAll("search")
-                    getSharedPreferences("connection", MODE_PRIVATE).edit().putString("server", normalized).apply()
-                    adapter.show(emptyList())
+                    cancelSearch?.invoke()
+                    detailsDialog?.dismiss()
+                    getSharedPreferences("tmdb", MODE_PRIVATE).edit().putString("token", value).apply()
                     binding.progress.visibility = View.GONE
-                    binding.statusText.text = "Server saved. Enter a title and press Search."
+                    binding.statusText.text = "Token saved. Enter a title and press Search."
                     dialog.dismiss()
                 }
             }
@@ -149,39 +194,33 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun showDetails(movie: Movie) {
-        fun available(value: Any?) = value?.toString() ?: "Unavailable"
-        fun names(value: List<String>) = value.joinToString(", ").ifEmpty { "Unavailable" }
-        val details = """
-            Year: ${available(movie.year)}
-            Genre: ${names(movie.genres)}
-            IMDb rating: ${available(movie.rating)}
-            Votes: ${available(movie.votes)}
-            Runtime: ${movie.runtime?.let { "$it minutes" } ?: "Unavailable"}
-
-            Director: ${names(movie.directors)}
-
-            Cast: ${names(movie.cast)}
-
-            Description: ${movie.description ?: "Not supplied by the free IMDb dataset."}
-
-            IMDb ID: ${movie.id}
-        """.trimIndent()
-        val text = TextView(this).apply {
-            this.text = details
-            textSize = 16f
+    private fun about() {
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             val padding = (24 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding / 2, padding, padding)
+            setPadding(padding, padding, padding, padding)
         }
-        val scroll = ScrollView(this).apply { addView(text) }
-        AlertDialog.Builder(this).setTitle(movie.title).setView(scroll).setPositiveButton("Close", null).show()
-        Log.d("MovieSearch", "details id=${movie.id} title=${movie.title}")
+        val logo = ImageView(this).apply {
+            contentDescription = "The Movie Database logo"
+            adjustViewBounds = true
+            load("file:///android_asset/tmdb_logo.svg") { decoderFactory(SvgDecoder.Factory()) }
+        }
+        content.addView(logo, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (24 * resources.displayMetrics.density).toInt()))
+        content.addView(TextView(this).apply {
+            text = "This product uses the TMDB API but is not endorsed or certified by TMDB.\n\nMovie Search is a non-commercial student project using Volley and Retrofit. Ratings and votes come from TMDB.\n\nhttps://www.themoviedb.org"
+            textSize = 16f
+            setPadding(0, (20 * resources.displayMetrics.density).toInt(), 0, 0)
+        })
+        AlertDialog.Builder(this).setTitle("About Movie Search")
+            .setView(content).setPositiveButton("Close", null).show()
     }
 
     override fun onDestroy() {
         requestNumber++
-        currentCall?.cancel()
-        queue.cancelAll("search")
+        detailNumber++
+        cancelSearch?.invoke()
+        cancelDetails?.invoke()
+        detailsDialog?.dismiss()
         super.onDestroy()
     }
 }

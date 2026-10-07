@@ -4,10 +4,9 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import com.student.moviesearch.databinding.ItemMovieBinding
 
-class MovieAdapter(private val serverUrl: () -> String, private val onClick: (Movie) -> Unit) : RecyclerView.Adapter<MovieAdapter.MovieHolder>() {
+class MovieAdapter(private val onClick: (Movie) -> Unit) : RecyclerView.Adapter<MovieAdapter.MovieHolder>() {
     private var movies = emptyList<Movie>()
 
     fun show(items: List<Movie>) {
@@ -29,8 +28,7 @@ class MovieAdapter(private val serverUrl: () -> String, private val onClick: (Mo
             title.text = movie.title
             year.text = movie.year?.toString() ?: "Year unavailable"
             poster.contentDescription = "Details for ${movie.title}"
-            val posterUrl = movie.poster?.let { serverUrl().toHttpUrl().resolve(it)?.toString() }
-            poster.load(posterUrl) {
+            poster.load(movie.poster) {
                 placeholder(R.drawable.poster_placeholder)
                 error(R.drawable.poster_placeholder)
             }

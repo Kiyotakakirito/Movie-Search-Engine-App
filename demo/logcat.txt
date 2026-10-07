@@ -1,20 +1,22 @@
---------- beginning of main
-10-07 10:12:11.960  7692  7692 D MovieSearch: query=Orbit method=Retrofit request=GET http://10.0.2.2:8000/search?q=Orbit
-10-07 10:12:13.118  7692  7692 D MovieSearch: method=Retrofit response/result count=6 total=6
-10-07 10:12:15.507  7692  7692 D MovieSearch: details id=sample6 title=Orbit: Homecoming
-10-07 10:12:16.664  7692  7692 D MovieSearch: query=Orbit method=Volley request=GET http://10.0.2.2:8000/search?q=Orbit
-10-07 10:12:17.759  7692  7692 D MovieSearch: method=Volley response/result count=6 total=6
-10-07 10:12:18.651  7692  7692 D MovieSearch: details id=sample6 title=Orbit: Homecoming
 10-07 10:12:19.845  7692  7692 D MovieSearch: Empty query rejected
-10-07 10:12:20.733  7692  7692 D MovieSearch: query=zzzz-no-movie-12345 method=Volley request=GET http://10.0.2.2:8000/search?q=zzzz-no-movie-12345
-10-07 10:12:21.270  7692  7692 D MovieSearch: method=Volley response/result count=0 total=0
-10-07 10:12:22.204  7692  7692 D MovieSearch: query=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx method=Retrofit request=GET http://10.0.2.2:8000/search?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-10-07 10:12:22.786  7692  7692 E MovieSearch: method=Retrofit error=Server error (400)
-10-07 10:12:23.660  7692  7692 D MovieSearch: query=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx method=Volley request=GET http://10.0.2.2:8000/search?q=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-10-07 10:12:24.302  7692  7692 E MovieSearch: method=Volley error=Server error (400)
-10-07 10:12:24.302  7692  7692 E MovieSearch: com.android.volley.ClientError
-10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.toolbox.NetworkUtility.shouldRetryException(NetworkUtility.java:193)
-10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.toolbox.BasicNetwork.performRequest(BasicNetwork.java:145)
-10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.processRequest(NetworkDispatcher.java:132)
-10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.processRequest(NetworkDispatcher.java:111)
-10-07 10:12:24.302  7692  7692 E MovieSearch: 	at com.android.volley.NetworkDispatcher.run(NetworkDispatcher.java:90)
+10-07 10:40:51.557  9268  9268 D MovieSearch: Empty query rejected
+10-07 10:42:34.839 10025 10025 D MovieSearch: Empty query rejected
+10-07 11:05:33.676 11236 11236 D MovieSearch: query=Inception method=Retrofit request=GET /3/search/movie page=1
+10-07 11:05:35.943 11236 11236 D MovieSearch: method=Retrofit response/result count=12 total=12 page=1
+10-07 11:05:40.157 11236 11236 D MovieSearch: method=Retrofit details request=GET /3/movie/27205?append_to_response=credits
+10-07 11:05:40.627 11236 11236 D MovieSearch: method=Retrofit details response id=27205 cast count=52
+10-07 11:05:42.055 11236 11236 D MovieSearch: query=Inception method=Volley request=GET /3/search/movie page=1
+10-07 11:05:43.221 11236 11236 D MovieSearch: method=Volley response/result count=12 total=12 page=1
+10-07 11:05:44.561 11236 11236 D MovieSearch: method=Volley details request=GET /3/movie/27205?append_to_response=credits
+10-07 11:05:45.066 11236 11236 D MovieSearch: method=Volley details response id=27205 cast count=52
+10-07 11:05:46.353 11236 11236 D MovieSearch: Empty query rejected
+10-07 11:05:47.872 11236 11236 D MovieSearch: query=zzzz-no-movie-987654321-qaz method=Volley request=GET /3/search/movie page=1
+10-07 11:05:48.175 11236 11236 D MovieSearch: method=Volley response/result count=0 total=0 page=1
+10-07 11:05:49.201 11236 11236 D MovieSearch: query=Inception method=Retrofit request=GET /3/search/movie page=1
+10-07 11:05:49.495 11236 11236 E MovieSearch: method=Retrofit search error=TMDB rejected the access token. Check API settings.
+10-07 11:05:50.666 11236 11236 D MovieSearch: query=Inception method=Volley request=GET /3/search/movie page=1
+10-07 11:05:50.949 11236 11236 E MovieSearch: method=Volley search error=TMDB rejected the access token. Check API settings.
+10-07 11:05:51.815 11236 11236 D MovieSearch: query=Batman method=Retrofit request=GET /3/search/movie page=1
+10-07 11:05:52.121 11236 11236 D MovieSearch: method=Retrofit response/result count=20 total=175 page=1
+10-07 11:05:52.196 11236 11236 D MovieSearch: query=Batman method=Retrofit request=GET /3/search/movie page=2
+10-07 11:05:52.525 11236 11236 D MovieSearch: method=Retrofit response/result count=20 total=175 page=2
